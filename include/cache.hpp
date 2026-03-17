@@ -1,5 +1,7 @@
 #include <cstdint>
 #include <vector>
+#include <random>
+#include <limits>
 
 // Pentium 4 L1 cache: 
 // 4 way associative
@@ -33,9 +35,13 @@ class L1Cache {
         std::vector<uint8_t> batch_read(std::vector<Address> addresses);
 
     private:
-        CacheLine lines[128];
+        CacheLine lines_[128];
+        std::random_device rd_;                     // for random eviction (obtains a seed)
+        std::mt19937 gen_;                         // Standard mersenne twister engine seeded with rd()
+        std::uniform_int_distribution<> distrib_;  // Define the desired distribution
+
 
         void write(uint8_t input);
         void batch_write(std::vector<uint8_t> input_data);
-        void evict(int set_index);
+        void evict_and_replace(uint8_t set_index);
 };
