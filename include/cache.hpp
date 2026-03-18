@@ -36,11 +36,11 @@ struct CacheLine {
     uint8_t data[CACHE_BLOCK_SIZE_BYTES];
 };
 
-class L1Cache {
+class Cache {
     public:
-        L1Cache();
-        L1Cache(std::vector<Address> input_data);
-        ~L1Cache();
+        Cache();
+        Cache(std::vector<Address> input_data);
+        ~Cache();
 
         uint8_t read(Address address);
         std::vector<uint8_t> batch_read(std::vector<Address> addresses);
@@ -61,7 +61,7 @@ class L1Cache {
 
         // void write(uint8_t input);
         // void batch_write(std::vector<uint8_t> input_data);
-        uint8_t* fetch_data(uint32_t ram_index);
+        uint8_t* fetch_lower(uint32_t ram_index);
         uint8_t gen_random();
         int get_ram_block_index(Address address);
         uint8_t evict_and_replace(Address address);

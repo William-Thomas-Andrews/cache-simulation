@@ -20,6 +20,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # Library target
 add_library(cache_lib
     src/cache.cpp
+    src/memory_system.cpp
     src/main.cpp
 )
 

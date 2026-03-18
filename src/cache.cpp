@@ -1,13 +1,13 @@
 #include "cache.hpp"
 
-L1Cache::L1Cache() {
+Cache::Cache() {
     // allocate ram
     ram_ = new uint8_t[ram_bytes_];
 
     // no data to read in yet
 }
 
-L1Cache::L1Cache(std::vector<Address> input_data) {
+Cache::LCache(std::vector<Address> input_data) {
     // allocate ram
     ram_ = new uint8_t[ram_bytes_];
     
@@ -15,11 +15,11 @@ L1Cache::L1Cache(std::vector<Address> input_data) {
     batch_read(input_data);
 }
 
-L1Cache::~L1Cache() {
+Cache::~Cache() {
     free(ram_);
 }
 
-uint8_t L1Cache::read(Address address) {
+uint8_t Cache::read(Address address) {
     CacheLine line; 
     // iterate through blocks, cache WAY times
     for (uint32_t i = 0; i < WAY; i++) {
@@ -34,36 +34,36 @@ uint8_t L1Cache::read(Address address) {
     return evict_and_replace(address);
 }
 
-std::vector<uint8_t> L1Cache::batch_read(std::vector<Address> addresses) {
+std::vector<uint8_t> Cache::batch_read(std::vector<Address> addresses) {
     std::vector<uint8_t> result;
     for (Address address : addresses)
         result.push_back(read(address));
     return result;
 }
 
-// void L1Cache::write(uint8_t input) {
+// void Cache::write(uint8_t input) {
 
 // }
 
-// void L1Cache::batch_write(std::vector<uint8_t> input_data) {
+// void Cache::batch_write(std::vector<uint8_t> input_data) {
 
 // }
 
-uint8_t* L1Cache::fetch_data(uint32_t ram_index) {
-    if (ram_index >= ram_bytes_) throw std::out_of_range("Error in RAM data fetch: index out of range.");
+uint8_t* Cache::fetch_lower(uint32_t ram_index) {
+    if (ram_index >= ram_bytes_) throw std::out_of_range("Error in data fetch: index out of range.");
     return &ram_[ram_index];
 }
 
-uint8_t L1Cache::gen_random() {
+uint8_t Cache::gen_random() {
     std::uniform_int_distribution<uint8_t> distrib(0, MAX_INT_VAL);
     return distrib(gen_);
 }
 
-int L1Cache::get_ram_block_index(Address address) {
+int Cache::get_ram_block_index(Address address) {
     return (address.tag << nset_bits_) | address.set;
 }
 
-uint8_t L1Cache::evict_and_replace(Address address) {
+uint8_t Cache::evict_and_replace(Address address) {
     // Generate the random number mod WAY
     uint8_t r = gen_random() % WAY;
     
@@ -72,7 +72,7 @@ uint8_t L1Cache::evict_and_replace(Address address) {
     lines_[address.set * WAY + r].tag = address.tag;                          // tag bit set
     int ram_index = get_ram_block_index(address) % ram_bytes_;
 
-    memcpy(lines_[address.set * WAY + r].data, fetch_data(ram_index), CACHE_BLOCK_SIZE_BYTES);  // data copied from lower level
+    memcpy(lines_[address.set * WAY + r].data, fetch__lower(ram_index), CACHE_BLOCK_SIZE_BYTES);  // data copied from lower level
     
     // return the found uint8_t
     return lines_[address.set * WAY + r].data[address.block_offset];
