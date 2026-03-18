@@ -2,6 +2,9 @@
 #include <vector>
 #include <random>
 #include <limits>
+#include <cstring>
+#include <stdexcept>
+
 
 // Pentium 4 L1 cache: 
 // 4 way associative
@@ -17,11 +20,12 @@
 #define WAY 4
 #define CACHE_SIZE_BYTES 8192
 #define CACHE_BLOCK_SIZE_BYTES 64
+#define MAX_INT_VAL 255
 
 struct Address {
     uint32_t tag;           // 21 bits
-    uint8_t set;            // 5 bits
-    uint8_t block_offset    // 6 bits
+    uint32_t set;            // 5 bits
+    uint32_t block_offset;   // 6 bits
 };
 
 struct CacheLine {
@@ -33,26 +37,28 @@ struct CacheLine {
 class L1Cache {
     public:
         L1Cache();
-        L1Cache(std::vector<uint8_t> input_data);
+        L1Cache(std::vector<Address> input_data);
 
         uint8_t read(Address address);
         std::vector<uint8_t> batch_read(std::vector<Address> addresses);
 
     private:
-        constexpr int nblocks_;
-        constexpr int nsets_;
-        constexpr int nindices_;
-        constexpr int nblock_offset_bits_;
-        constexpr int ntag_bits_;
+        static constexpr int nblocks_ = CACHE_SIZE_BYTES / CACHE_BLOCK_SIZE_BYTES;
+        static constexpr int nsets_ = nblocks_ / WAY;
+        static constexpr int nindices_ = std::log2(nsets_);
+        static constexpr int nblock_offset_bits_ = std::log2(CACHE_BLOCK_SIZE_BYTES);
+        static constexpr int ntag_bits_ = nsets_ - nblock_offset_bits_ - nindices_;
         CacheLine lines_[nblocks_];
-        constexpr int ram_size = 4096; // 4096 is arbitrary size, just don't make tag range too much in the addresses and cache lines
-        uint8_t* ram_[ram_size]; 
+        static constexpr int ram_size_ = 4096; // 4096 is arbitrary size, just don't make tag range too much in the addresses and cache lines
+        uint8_t* ram_[ram_size_]; 
         std::random_device rd_;                    // for random eviction (obtains a seed)
-        std::mt19937 gen_;                         // Standard mersenne twister engine seeded with rd()
-        std::uniform_int_distribution<> distrib_;  // Define the desired distribution
 
-        void write(uint8_t input);
-        void batch_write(std::vector<uint8_t> input_data);
+
+
+        // void write(uint8_t input);
+        // void batch_write(std::vector<uint8_t> input_data);
         uint8_t* fetch_data(uint32_t ram_index);
+        uint8_t gen_random();
         uint8_t evict_and_replace(Address address);
+        
 };

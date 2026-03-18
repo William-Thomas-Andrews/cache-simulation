@@ -1,28 +1,17 @@
 #include "cache.hpp"
 
-L1Cache::L1Cache() : nblocks_(CACHE_SIZE_BYTES / CACHE_BLOCK_SIZE_BYTES), 
-    nsets_(nblocks_ / WAY), 
-    nindices_(std::log2(nset_bits_)),
-    nblock_offset_bits_(std::log2(CACHE_BLOCK_SIZE_BYTES)),
-    ntag_bits_(nsets_ - nblock_offset_bits_ - nindices_)
-{
+L1Cache::L1Cache() {
     // allocate ram
-    for (int i = 0; i < ram_size; i++) 
-        ram_[i] = new int[CACHE_BLOCK_SIZE_BYTES];
+    for (int i = 0; i < ram_size_; i++) 
+        ram_[i] = new uint8_t[CACHE_BLOCK_SIZE_BYTES];
 
-    // set up random number generator for random eviction
-    gen_(rd_());
-    distrib_(0, 255); // Define the desired distribution (e.g., integers between 0 and 255 which is uint8_t max)
+    // no data to read in yet
 }
 
 L1Cache::L1Cache(std::vector<Address> input_data) {
     // allocate ram
-    for (int i = 0; i < ram_size; i++) 
-        ram_[i] = new int[CACHE_BLOCK_SIZE_BYTES];
-    
-    // set up random number generator for random eviction
-    gen_(rd_());
-    distrib_(0, 255); // Define the desired distribution (e.g., integers between 0 and 255 which is uint8_t max)
+    for (int i = 0; i < ram_size_; i++) 
+        ram_[i] = new uint8_t[CACHE_BLOCK_SIZE_BYTES];
     
     // read in data to cache
     batch_read(input_data);
@@ -31,7 +20,7 @@ L1Cache::L1Cache(std::vector<Address> input_data) {
 uint8_t L1Cache::read(Address address) {
     CacheLine line; 
     // iterate through blocks, cache WAY times
-    for (uint8_t i = 0; i < WAY; i++) {
+    for (uint32_t i = 0; i < WAY; i++) {
         line = lines_[address.set + i];
         // if tag match
         if (address.tag == line.tag) {
@@ -44,8 +33,9 @@ uint8_t L1Cache::read(Address address) {
 }
 
 std::vector<uint8_t> L1Cache::batch_read(std::vector<Address> addresses) {
+    std::vector<uint8_t> result;
     for (Address address : addresses)
-        read(address);
+        result.push_back(read(address));
 }
 
 // void L1Cache::write(uint8_t input) {
@@ -56,19 +46,26 @@ std::vector<uint8_t> L1Cache::batch_read(std::vector<Address> addresses) {
 
 // }
 
-uint8_t* fetch_data(uint32_t ram_index) {
-    if (ram_index >= ram_size) throw std::out_of_range("Error in RAM data fetch: index out of range.");
+uint8_t* L1Cache::fetch_data(uint32_t ram_index) {
+    if (ram_index >= ram_size_) throw std::out_of_range("Error in RAM data fetch: index out of range.");
     return ram_[ram_index];
+}
+
+uint8_t L1Cache::gen_random() {
+    // set up random number generator for random eviction
+    std::mt19937 gen(rd_());                         // Standard mersenne twister engine seeded with rd()
+    std::uniform_int_distribution<uint8_t> distrib(0, MAX_INT_VAL);  // Define the desired distribution (e.g., integers between 0 and 255 which is uint8_t max)
+    return distrib(gen);
 }
 
 uint8_t L1Cache::evict_and_replace(Address address) {
     // Generate the random number mod WAY
-    uint8_t r = static_cast<uint8_t>(distrib_(gen_)) % WAY;
+    uint8_t r = gen_random() % WAY;
     
     // replace the metadata
     lines_[address.set + r].valid = true;                               // valid bit set to true
     lines_[address.set + r].tag = address.tag;                          // tag bit set
-    memcpy(lines_[address.set + r].data, fetch_data(address.tag), 64);  // data copied from lower level
+    memcpy(lines_[address.set + r].data, fetch_data(address.tag), CACHE_BLOCK_SIZE_BYTES);  // data copied from lower level
     
     // return the found uint8_t
     return lines_[address.set + r].data[address.block_offset];
