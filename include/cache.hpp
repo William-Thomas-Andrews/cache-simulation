@@ -4,6 +4,9 @@
 #include <limits>
 #include <cstring>
 #include <stdexcept>
+#include <memory>
+#include <type_traits>
+
 
 
 // Pentium 4 L1 cache: 
@@ -24,10 +27,17 @@
 #define ADDRESS_BITS 32
 #define ADDRESS_FIELD_PRECISION 32
 
+
 struct Address {
     uint32_t tag;           // 21 bits
     uint32_t set;            // 5 bits
     uint32_t block_offset;   // 6 bits
+};
+
+class IMemory {
+public:
+    virtual uint8_t* read(Address address) = 0;
+    virtual ~IMemory() = default;
 };
 
 struct CacheLine {
@@ -36,13 +46,35 @@ struct CacheLine {
     uint8_t data[CACHE_BLOCK_SIZE_BYTES];
 };
 
-class Cache {
-    public:
-        Cache();
-        Cache(std::vector<Address> input_data);
-        ~Cache();
+struct RAM : public IMemory {
+    static constexpr int nblocks = CACHE_SIZE_BYTES / CACHE_BLOCK_SIZE_BYTES;
+    static constexpr int nsets = nblocks / WAY;
+    static constexpr int nset_bits = std::log2(nsets);
+    static constexpr size_t ram_size = 1ULL << 18; 
+    static constexpr size_t ram_bytes = ram_size * CACHE_BLOCK_SIZE_BYTES;
 
-        uint8_t read(Address address);
+    RAM();
+    ~RAM();
+
+    uint8_t* read(Address address);
+    uint8_t* data;
+};
+
+enum class Type {
+    L1,
+    L2,
+    L3
+};
+
+class Cache : public IMemory {
+    public:
+        IMemory* lower_level_;
+
+        Cache() = default;
+        Cache(std::vector<Address> input_data);
+        ~Cache() = default;
+
+        uint8_t* read(Address address);
         std::vector<uint8_t> batch_read(std::vector<Address> addresses);
 
     private:
@@ -51,19 +83,13 @@ class Cache {
         static constexpr int nset_bits_ = std::log2(nsets_);
         static constexpr int nblock_offset_bits_ = std::log2(CACHE_BLOCK_SIZE_BYTES);
         static constexpr int ntag_bits_ = ADDRESS_BITS - nblock_offset_bits_ - nset_bits_;
-        static constexpr size_t ram_size_ = 1ULL << 18; 
-        static constexpr size_t ram_bytes_ = ram_size_ * CACHE_BLOCK_SIZE_BYTES;
 
         CacheLine lines_[nblocks_];
-        uint8_t* ram_;
+
         std::random_device rd_;
         std::mt19937 gen_{rd_()};                  // seeded once at construction
 
-        // void write(uint8_t input);
-        // void batch_write(std::vector<uint8_t> input_data);
-        uint8_t* fetch_lower(uint32_t ram_index);
+        uint8_t* fetch_lower(Address address);
         uint8_t gen_random();
-        int get_ram_block_index(Address address);
-        uint8_t evict_and_replace(Address address);
-        
+        uint8_t* evict_and_replace(Address address);
 };
